@@ -6,6 +6,16 @@
 
 void node_insert(trie_node *node, line_code *code,int start_index,int index);
 
+int get_len(char *s){
+	int len = 0;
+	char *p = s;
+	while (*p != '\n'&&*p != '\0'&&*p != '\r') {
+		len++;
+		p++;
+	}
+	return len;
+}
+
 char* custom_malloc(char *s,int len){
     s = (char*)malloc(sizeof(char)*(len+1));
     while(s==NULL)s = (char*)malloc(sizeof(char)*(len+1));
@@ -45,8 +55,8 @@ int str2bi(char *str, int len_s, char *bi) {
 }
 
 void str2code(char *str,line_code *code){
-	int str_len = strlen(str);
-    code->str = custom_malloc(code->str,strlen(str));
+	int str_len = get_len(str);
+    code->str = custom_malloc(code->str,get_len(str));
     strcpy(code->str,str);
     code->s = custom_malloc(code->s,str_len * 8);
     code->len = str2bi(str,str_len,code->s)*8;
@@ -57,13 +67,15 @@ void str2code(char *str,line_code *code){
 int read_file(FILE *f,line_code *last,int line_num){
 	int i = 0;
 	if (feof(f))return 0;
-	char *s=(char*)malloc(sizeof(char)*66);
+	char *s;
+    s = custom_malloc(s,66);
 	while (!feof(f) && i<line_num) {
 		i+=1;
 		line_code *node = (line_code*)malloc(sizeof(line_code));
 		while(node==NULL)node = (line_code*)malloc(sizeof(line_code));
 
-		fgets(s, 66, f);
+		s = fgets(s, 66, f);
+        while(s==NULL)s=fgets(s,66,f);
 		str2code(s, node);
 		last->next = node;
 		last = node;
@@ -123,7 +135,7 @@ void allocate_node_by_code(trie_node *parent, line_code *code,int start_index,in
     else if(index+same_length==16)
         suffix_len = 16;
     init_trienode(new_node,suffix_len,1,parent);
-    new_node->slice = (char*)malloc(sizeof(char)*(suffix_len+1));
+    new_node->slice = custom_malloc(new_node->slice,suffix_len);
     custom_ncpy(new_node->slice,code->s+start_index+same_length,suffix_len);
     code->len = code->len - same_length - suffix_len;
     if(new_node->slice[0]=='0')parent->left = new_node;
@@ -134,8 +146,9 @@ void allocate_node_by_code(trie_node *parent, line_code *code,int start_index,in
         start_index += (suffix_len+same_length);
         while(code->len>0){
             trie_node *newer_node = (trie_node *)malloc(sizeof(trie_node));
+            while(newer_node==NULL)newer_node = (trie_node *)malloc(sizeof(trie_node));
             init_trienode(newer_node,16,1,new_node);
-            newer_node->slice = (char*)malloc(sizeof(char)*(16+1));
+            newer_node->slice = custom_malloc(newer_node->slice,16);
             custom_ncpy(newer_node->slice,(code->s+start_index),16);
             if(newer_node->slice[0]=='0')new_node->left = newer_node;
             else new_node->right = newer_node;
@@ -147,7 +160,7 @@ void allocate_node_by_code(trie_node *parent, line_code *code,int start_index,in
         printf("index value error,smaller than 0\n");
         exit(1);
     }
-    new_node->str = custom_malloc(new_node->str,strlen(code->str));
+    new_node->str = custom_malloc(new_node->str,get_len(code->str));
     strcpy(new_node->str,code->str);
     return ;
 }
@@ -163,7 +176,7 @@ void node_insert(trie_node *node, line_code *code,int start_index,int index){
             while(code->len>0){
                 trie_node *new_node = (trie_node *)malloc(sizeof(trie_node));
                 init_trienode(new_node,16,1,node);
-                new_node->slice = (char*)malloc(sizeof(char)*(16+1));
+                new_node->slice=custom_malloc(new_node->slice,16);
                 custom_ncpy(new_node->slice,(code->s+start_index),16);
                 if(new_node->slice[0]=='0')node->left = new_node;
                 else node->right = new_node;
@@ -171,14 +184,14 @@ void node_insert(trie_node *node, line_code *code,int start_index,int index){
                 start_index+=16;
                 node = new_node;
             }
-            node->str = custom_malloc(node->str,strlen(code->str));
+            node->str = custom_malloc(node->str,get_len(code->str));
             strcpy(node->str,code->str);
         }
     }
     //非根节点，且节点与字符串相等
     else if(strcmp(node->slice,(code->s+start_index))==0){
         if(node->str == NULL){
-            node->str = custom_malloc(node->str,strlen(code->str));
+            node->str = custom_malloc(node->str,get_len(code->str));
             strcpy(node->str,code->str);
         }
     }
@@ -195,8 +208,9 @@ void node_insert(trie_node *node, line_code *code,int start_index,int index){
 		//与注释部分的差别在于没有释放掉node去重新产生一个新的trie_suffix,而是直接在现有的node上改变（但其实也没有性能的提升）
 		if (same_length < node->len && same_length < code->len) {
             trie_node *new_parent = (trie_node*)malloc(sizeof(trie_node));
+            while(new_parent==NULL)new_parent = (trie_node*)malloc(sizeof(trie_node));
             init_trienode(new_parent,same_length,0,node->parent);
-            new_parent->slice = (char*)malloc(sizeof(char)*(same_length+1));
+            new_parent->slice = custom_malloc(new_parent->slice,same_length);
             custom_ncpy(new_parent->slice,node->slice,same_length);
             if(node->parent->left == node)node->parent->left = new_parent;
             else node->parent->right = new_parent;
@@ -210,21 +224,22 @@ void node_insert(trie_node *node, line_code *code,int start_index,int index){
             allocate_node_by_code(new_parent, code, start_index,index,same_length);
 		}
 		else if(same_length == node->len){
-            if(node->left!=NULL && node->left->slice[0]==(code->s+start_index)[same_length]){
+            if(!node->left && node->left!=NULL && node->left->slice[0]==(code->s+start_index)[same_length]){
                 code->len = code->len-same_length;
                 node_insert(node->left,code,start_index+same_length,(index+same_length)%16);
-            }else if(node->right!=NULL && node->right->slice[0]==(code->s+start_index)[same_length]){
+            }else if(!node->right && node->right->slice[0]==(code->s+start_index)[same_length]){
                 code->len = code->len-same_length;
                 node_insert(node->right,code,start_index+same_length,(index+same_length)%16);
             }else{
                 trie_node * new_node = (trie_node*)malloc(sizeof(trie_node));
+                while(new_node==NULL)new_node = (trie_node*)malloc(sizeof(trie_node)); 
                 int suffix_len = 0;
                 if(same_length+index == 16){
                     suffix_len = 16;
                 }else
                     suffix_len = 16-same_length-index;
                 init_trienode(new_node,suffix_len,1,node);
-                new_node->slice = (char*)malloc(sizeof(char)*(suffix_len+1));
+                new_node->slice = custom_malloc(new_node->slice,suffix_len);
                 custom_ncpy(new_node->slice,(code->s+start_index)+same_length,suffix_len);
                 code->len -= (same_length+suffix_len);
 
@@ -235,7 +250,7 @@ void node_insert(trie_node *node, line_code *code,int start_index,int index){
                     while(code->len>0){
                         trie_node *newer_node = (trie_node *)malloc(sizeof(trie_node));
                         init_trienode(newer_node,16,1,new_node);
-                        newer_node->slice = (char*)malloc(sizeof(char)*(16+1));
+                        newer_node->slice = custom_malloc(newer_node->slice,16);
                         custom_ncpy(newer_node->slice,(code->s+start_index),16);
                         if(newer_node->slice[0]=='0')new_node->left = newer_node;
                         else new_node->right = newer_node;
@@ -244,23 +259,10 @@ void node_insert(trie_node *node, line_code *code,int start_index,int index){
                         new_node = newer_node;
                     }
                 }
-                new_node->str = custom_malloc(new_node->str,strlen(code->str));
+                new_node->str = custom_malloc(new_node->str,get_len(code->str));
                 strcpy(new_node->str,code->str);
             }
         }
-        // else if (same_length == code->len){
-        //     trie_node *new_parent = (trie_node*)malloc(sizeof(trie_node));
-        //     init_trienode(new_parent,same_length,0,node->parent);
-        //     new_parent->slice = (char*)malloc(sizeof(char)*(same_length+1));
-        //     strcpy(new_parent->slice,(code->s+start_index));
-        //     if(node->parent->left == node)node->parent->left = new_parent;
-        //     else node->parent->right = new_parent;
-		// 	node->parent = new_parent;
-		// 	node->slice = node->slice + same_length;
-		// 	node->len = node->len - same_length;
-		// 	if (node->slice[0] == '0')new_parent->left = node;
-		// 	else new_parent->right = node;
-        // }
     }
     return ;
 }
@@ -313,21 +315,21 @@ void print_parent(FILE *file,trie_node *T){
     des = custom_malloc(des,58*16);
     while(p->slice!=NULL){
         char *tmp;
-        tmp = custom_malloc(tmp,strlen(p->slice)+3);
+        tmp = custom_malloc(tmp,get_len(p->slice)+3);
         strcpy(tmp,p->slice);//重新赋值一个变量，防止原变量被改变
         if(p->char_sign == 1){
             tmp[p->len] = ' ';
-            tmp[p->len+1] = '/';
+            tmp[p->len+1] = '|';
         }
-        revstr(tmp,strlen(tmp));
-        int len_des = strlen(des);
+        revstr(tmp,get_len(tmp));
+        int len_des = get_len(des);
         if(len_des!=0)des[len_des]=' ';
         strcat(des,tmp);
         free(tmp);//防止内存泄漏
         tmp = NULL;//防止野指针
         p=p->parent;
     }
-    revstr(des,strlen(des));
+    revstr(des,get_len(des));
     fprintf(file,"%s ",des);
     free(des);
     des = NULL;
@@ -339,29 +341,25 @@ int count = 0;
 void print_out(FILE *file,trie_node *T){
     if(T==NULL)return;
     if(T->slice!=NULL){
-        fprintf(file,"%s ",T->slice);
-        if(T->char_sign==1)fprintf(file,"/ ");
-        end_flag = 0;
+        if(end_flag == 1){
+            print_parent(file,T);
+            end_flag = 0;
+        }else{
+            fprintf(file,"%s ",T->slice);
+            if(T->char_sign==1)
+                fprintf(file,"| ");
+        }
+        if(T->str!=NULL){
+            fprintf(file,"%s\n",T->str);
+            end_flag=1;
+        }
     }
     print_out(file,T->left);
-    if(T->right!=NULL){
-        if(end_flag == 1)print_parent(file,T);
-        print_out(file,T->right);
-    }
-    if(T->left==NULL && T->right==NULL){
-        end_flag=1;
-        if(T->str!=NULL)
-            fprintf(file,"%s",T->str);
-            fprintf(file,"\n");
-    }
+    print_out(file,T->right);
     return ;
 }
 
 int main(){
-	if (access("pattern+string/pattern.txt", 0)) {
-		printf("not_exist");
-		exit(0);
-	}
 	FILE *f = NULL;
 	f = fopen("pattern+string/new_pattern.txt", "r");
 	line_code *code_head = (line_code *)malloc(sizeof(line_code));
@@ -372,17 +370,27 @@ int main(){
     trie_node *T = (trie_node*)malloc(sizeof(trie_node));
 	init_trienode(T, 0, 0,NULL);
 	int i = 0;
+    int count = 0;
 	while (read_file(f, last, 10000)) {
-        line_code *head = code_head;
-        write_code(head);
-
 		line_code *code = code_head->next;
 		while(code!=NULL){
 			line_code *p = code;
+            count++;
+            char *s;
+            s = custom_malloc(s,get_len(code->s));
+            strcpy(s,code->s);
+            // char *str;
+            // str = custom_malloc(str,get_len(code->str));
+            // strcpy(str,code->str);
+            if(count==6213){
+                printf("ok");
+            }
 			node_insert(T,code,0,0);
 			code=code->next;
 			free(p->s);
 			p->s = NULL;
+            free(p->str);
+            p->str = NULL;
 			free(p);
 			p = NULL;
 		}
