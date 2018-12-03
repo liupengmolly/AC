@@ -6,6 +6,7 @@ typedef struct trie_node{
     int len;
     int char_sign;
     char *slice;
+    char *str;
     int num;
     struct trie_node *parent;
     struct trie_node *left;
@@ -16,6 +17,7 @@ typedef struct trie_node{
 typedef struct line_code{
     int len;
     char *s;
+    char *str;
     struct line_code *next;
 }line_code;
 
